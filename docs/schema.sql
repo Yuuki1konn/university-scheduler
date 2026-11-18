@@ -57,6 +57,21 @@ CREATE TABLE IF NOT EXISTS student_course(
       CHECK (status IN ('PLANNED', 'ENROLLED', 'COMPLETED','FAILED','DROPPED'))
 );
 
+-- 4) 课程先修关系表
+-- 说明：程序（db_odbc.cpp）在首次同步课程时会自动建这张表，
+-- 这里显式写进脚本，方便在 Navicat 里一次性建库、也方便答辩时讲解表结构。
+CREATE TABLE IF NOT EXISTS course_prereq(
+    course_id VARCHAR(20) NOT NULL, -- 课程编号
+    prereq_id VARCHAR(20) NOT NULL, -- 该课程的先修课程编号
+    PRIMARY KEY (course_id, prereq_id), -- 同一门课的先修关系不重复
+    CONSTRAINT fk_cp_course
+      FOREIGN KEY (course_id) REFERENCES course(course_id)
+      ON UPDATE CASCADE ON DELETE CASCADE, -- 课程删除时连带删除它的先修记录
+    CONSTRAINT fk_cp_prereq
+      FOREIGN KEY (prereq_id) REFERENCES course(course_id)
+      ON UPDATE CASCADE ON DELETE RESTRICT -- 被当作先修的课程不允许直接删除
+);
+
 -- test data
 INSERT INTO student (student_id, name, major, grade) VALUES
 ('S2026001', '张三', 'Computer Science', 2026),
