@@ -24,6 +24,7 @@ QtDeployTargets.cmake
 
 # ---- 运行产物（保留 output/plan.txt 作为示例）----
 output/*.exe
+plan.txt
 
 # ---- 编辑器 / 系统 ----
 .trae/
