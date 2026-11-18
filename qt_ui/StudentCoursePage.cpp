@@ -1,7 +1,9 @@
 #include "StudentCoursePage.h"
 #include "AppSession.h"
+#include "UiMessages.h"
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
 #include <QTableWidget>
@@ -29,33 +31,46 @@ StudentCoursePage::StudentCoursePage(AppSession* session,
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setSortingEnabled(true);
+    table_->horizontalHeader()->setSortIndicatorShown(true);
 
     statusLabel_ = new QLabel(this);
+    auto* btnRefresh = new QPushButton("刷新", this);
     auto* btnClose = new QPushButton("关闭", this);
     
     auto* layout = new QVBoxLayout(this);
     layout->addWidget(infoLabel_);
     layout->addWidget(table_);
     layout->addWidget(statusLabel_);
-    layout->addWidget(btnClose);
+    auto* btnRow = new QHBoxLayout;
+    btnRow->addStretch();
+    btnRow->addWidget(btnRefresh);
+    btnRow->addWidget(btnClose);
+    layout->addLayout(btnRow);
 
+    connect(btnRefresh, &QPushButton::clicked, this, &StudentCoursePage::loadCourses);
     connect(btnClose, &QPushButton::clicked, this, &StudentCoursePage::accept);
 
     loadCourses();
 }
 
 void StudentCoursePage::loadCourses() {
+    UiMessages::BusyGuard busy(this, "正在读取课程记录...");
+    const bool sorting = table_->isSortingEnabled();
+    table_->setSortingEnabled(false);
     table_->setRowCount(0);
 
     if(!session_ || !session_->connected) {
         statusLabel_->setText("数据库未连接");
+        table_->setSortingEnabled(sorting);
         return;
     }
     
     std::vector<LearnedCourse> history;
     std::string err;
     if(!session_->db.listStudentCourses(student_.student_id, history, err)){
-        statusLabel_->setText(QString("读取课程记录失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取课程记录", QString::fromStdString(err)));
+        table_->setSortingEnabled(sorting);
         return;
     }
     
@@ -74,4 +89,5 @@ void StudentCoursePage::loadCourses() {
     }
 
     statusLabel_->setText(QString("共 %1 条课程记录").arg(history.size()));
+    table_->setSortingEnabled(sorting);
 }

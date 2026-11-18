@@ -9,8 +9,6 @@
 // 匿名命名空间：内部链接，这些辅助函数只在当前编译单元可见，避免与其他文件同名函数冲突
 
 namespace {
-
-
 /**
  * 去除字符串首尾的空白字符（空格、制表符、换行等）。
  * @param input 输入字符串
@@ -73,16 +71,6 @@ bool isValidCourseId(const std::string& id) {
 
 /**
  * 从文本文件导入课程目录。
- * 
- * 文件格式约定：
- *   第一行：课程数量（整数）
- *   后续每行：课程ID|课程名|学分|先修课程ID列表（多个ID用逗号分隔，可为空）
- *   示例：
- *     3
- *     C01|数据结构|3|C00
- *     C02|高等数学|4|
- *     C03|算法|3|C01,C02
- * 
  * @param path 文件路径
  * @param courses [输出] 存储解析成功的课程列表
  * @param error_message [输出] 错误信息
@@ -226,21 +214,6 @@ bool importCoursesFromTxt(
 
 /**
  * 将排课计划导出到文本文件。
- * 
- * 输出格式示例：
- *   Course Schedule Plan
- *   Total semesters: 2
- * 
- *   Semester 1
- *   ID|Name|Credit
- *   C01|数据结构|3
- *   C02|高等数学|4
- *   Total Credits: 7
- * 
- *   Semester 2
- *   ID|Name|Credit
- *   C03|算法|3
- *   Total Credits: 3
  * 
  * @param path 导出文件路径
  * @param plan 排课计划（每个学期的课程 ID 列表）

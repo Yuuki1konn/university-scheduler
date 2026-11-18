@@ -7,6 +7,8 @@
 struct AppSession{
     std::string uid;
     std::string pwd;
+    std::string login_user;
+    std::string last_error;
     OdbcDb db;
     bool connected = false;
     
@@ -22,6 +24,10 @@ struct AppSession{
 
     bool connect(std::string& err){
         connected = db.connect(buildConnStr(), err);
+        last_error = err;
+        if (connected) {
+            login_user = uid;
+        }
         return connected;
     }
 

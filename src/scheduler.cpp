@@ -19,8 +19,6 @@ std::unordered_map<std::string, Course> buildCourseMap(const std::vector<Course>
     }
     return m;
 }
-
-
 /**
  * 根据当前可选的课程列表、剩余学分和学期数，为当前学期选择合适的课程。
  * 
@@ -100,8 +98,9 @@ std::vector<std::string> pickCoursesForSemester(
 
     return selected;
 }
-}//namespace
-
+}
+//namespace
+// 构建先修课程图
 bool buildPrereqGraph(
     const std::vector<Course>& courses,
     std::unordered_map<std::string, std::vector<std::string>>& adj, //[输出参数] 邻接表，存储课程的先修关系。
@@ -136,7 +135,7 @@ bool buildPrereqGraph(
 
     return true;
 }
-
+// 拓扑排序：根据先修关系对课程进行排序
 bool topologicalSort(
     const std::vector<Course>& courses,// 输入：所有课程列表
     std::vector<std::string>& order,// 输出：排序后的课程 ID 列表

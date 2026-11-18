@@ -1,10 +1,46 @@
 #pragma once
 
 #include <QMessageBox>
+#include <QProgressDialog>
+#include <QApplication>
 #include <QString>
 #include <QWidget>
 
 namespace UiMessages {
+
+inline QString formatError(const QString& action, const QString& detail) {
+    if (detail.trimmed().isEmpty()) {
+        return QString("%1失败，请稍后重试。").arg(action);
+    }
+    return QString("%1失败。\n原因：%2").arg(action, detail);
+}
+
+class BusyGuard {
+public:
+    BusyGuard(QWidget* parent, const QString& text)
+        : dialog_(parent) {
+        dialog_.setWindowTitle("请稍候");
+        dialog_.setLabelText(text);
+        dialog_.setCancelButton(nullptr);
+        dialog_.setRange(0, 0);
+        dialog_.setMinimumDuration(0);
+        dialog_.setAutoClose(false);
+        dialog_.setAutoReset(false);
+        dialog_.setWindowModality(Qt::WindowModal);
+        dialog_.show();
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        QApplication::processEvents();
+    }
+
+    ~BusyGuard() {
+        dialog_.hide();
+        QApplication::restoreOverrideCursor();
+        QApplication::processEvents();
+    }
+
+private:
+    QProgressDialog dialog_;
+};
 
 inline void info(QWidget* parent, const QString& title, const QString& text) {
     QMessageBox::information(parent, title, text);

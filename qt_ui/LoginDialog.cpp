@@ -1,5 +1,6 @@
 #include "LoginDialog.h"
 #include "AppSession.h"
+#include "UiMessages.h"
 
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -34,11 +35,19 @@ void LoginDialog::onConnectClicked(){
     //从输入框中获取用户名和密码，并赋值给 session_ 对象的 uid 和 pwd。
     session_->uid = userEdit_->text().toStdString();
     session_->pwd = passEdit_->text().toStdString();
+    if (userEdit_->text().trimmed().isEmpty()) {
+        msgLabel_->setText("请输入 MySQL 用户名");
+        return;
+    }
+    if (passEdit_->text().trimmed().isEmpty()) {
+        msgLabel_->setText("请输入 MySQL 密码");
+        return;
+    }
     //调用 session_->connect(err) 尝试连接数据库，连接结果存入 connected，错误信息通过 err 返回
     std::string err;
     if(session_->connect(err)){
         accept();
     }else{
-        msgLabel_->setText(QString("连接失败: %1").arg(QString::fromStdString(err)));
+        msgLabel_->setText(UiMessages::formatError("连接数据库", QString::fromStdString(err)));
     }
 }

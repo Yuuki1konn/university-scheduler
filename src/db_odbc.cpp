@@ -3,7 +3,14 @@
 #include <cstring>
 #include <sstream>
 #include <unordered_set>
-
+// 从 ODBC 句柄获取错误信息
+/**
+ * @brief 从 ODBC 句柄获取错误信息
+ * 
+ * @param handle_type ODBC 句柄类型（例如 SQL_HANDLE_ENV, SQL_HANDLE_DBC, SQL_HANDLE_STMT）
+ * @param handle ODBC 句柄
+ * @return std::string 错误信息字符串
+ */
 static std::string getOdbcError(SQLSMALLINT handle_type, SQLHANDLE handle) {
     std::ostringstream oss;
     SQLCHAR state[6] = {0};
@@ -28,25 +35,27 @@ static std::string getOdbcError(SQLSMALLINT handle_type, SQLHANDLE handle) {
 OdbcDb::~OdbcDb() {
     disconnect();
 }
-
+//
 bool OdbcDb::connect(const std::string& conn_str, std::string& err) {
     disconnect();
-
+    // 分配环境句柄
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env_))) {
         err = "SQLAllocHandle(SQL_HANDLE_ENV) failed.";
         return false;
     }
+    // 设置环境属性为
     if (!SQL_SUCCEEDED(SQLSetEnvAttr(env_, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0))) {
         err = "SQLSetEnvAttr ODBC3 failed: " + getOdbcError(SQL_HANDLE_ENV, env_);
         disconnect();
         return false;
     }
+    // 分配数据库连接句柄
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_DBC, env_, &dbc_))) {
         err = "SQLAllocHandle(SQL_HANDLE_DBC) failed: " + getOdbcError(SQL_HANDLE_ENV, env_);
         disconnect();
         return false;
     }
-
+    // 连接数据库
     SQLCHAR out_conn[1024] = {0};
     SQLSMALLINT out_len = 0;
     SQLRETURN ret = SQLDriverConnectA(
@@ -146,20 +155,17 @@ bool OdbcDb::listStudents(std::vector<StudentInfo>& out, std::string& err) {
         err = "Not connected.";
         return false;
     }
-
     SQLHSTMT stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &stmt))) {
         err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
         return false;
     }
-
     const char* sql = "SELECT student_id, name, major, grade FROM student ORDER BY student_id";
     if (!SQL_SUCCEEDED(SQLExecDirectA(stmt, (SQLCHAR*)sql, SQL_NTS))) {
         err = "listStudents query failed: " + getOdbcError(SQL_HANDLE_STMT, stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return false;
     }
-
     while (true) {
         SQLRETURN ret = SQLFetch(stmt);
         if (ret == SQL_NO_DATA) {
@@ -170,7 +176,6 @@ bool OdbcDb::listStudents(std::vector<StudentInfo>& out, std::string& err) {
             SQLFreeHandle(SQL_HANDLE_STMT, stmt);
             return false;
         }
-
         char sid[64] = {0};
         char name[128] = {0};
         char major[128] = {0};
@@ -187,7 +192,6 @@ bool OdbcDb::listStudents(std::vector<StudentInfo>& out, std::string& err) {
         if (ind1 == SQL_NULL_DATA) {
             continue;
         }
-
         StudentInfo s;
         s.student_id = sid;
         s.name = (ind2 == SQL_NULL_DATA) ? "" : name;
@@ -536,24 +540,25 @@ bool OdbcDb::listStudentCourses(const std::string& student_id, std::vector<Learn
 
 bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
     out.clear();
+    // 检查数据库连接是否有效
     if (dbc_ == SQL_NULL_HDBC) {
         err = "Not connected.";
         return false;
     }
-
+    // 分配语句句柄
     SQLHSTMT stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &stmt))) {
         err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
         return false;
     }
-
+    // 查询课程列表
     const char* sql = "SELECT course_id, course_name, credit FROM course ORDER BY course_id";
     if (!SQL_SUCCEEDED(SQLExecDirectA(stmt, (SQLCHAR*)sql, SQL_NTS))) {
         err = "listCoursesFromDb query failed: " + getOdbcError(SQL_HANDLE_STMT, stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return false;
     }
-
+    //遍历查询结果，将每一行数据转换为Course结构体并添加到out向量中
     while (true) {
         SQLRETURN ret = SQLFetch(stmt);
         if (ret == SQL_NO_DATA) {
@@ -564,12 +569,10 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
             SQLFreeHandle(SQL_HANDLE_STMT, stmt);
             return false;
         }
-
         char cid[64] = {0};
         char cname[128] = {0};
         SQLINTEGER credit = 0;
         SQLLEN ind1 = 0, ind2 = 0, ind3 = 0;
-
         if (!SQL_SUCCEEDED(SQLGetData(stmt, 1, SQL_C_CHAR, cid, sizeof(cid), &ind1)) ||
             !SQL_SUCCEEDED(SQLGetData(stmt, 2, SQL_C_CHAR, cname, sizeof(cname), &ind2)) ||
             !SQL_SUCCEEDED(SQLGetData(stmt, 3, SQL_C_SLONG, &credit, sizeof(credit), &ind3))) {
@@ -577,11 +580,9 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
             SQLFreeHandle(SQL_HANDLE_STMT, stmt);
             return false;
         }
-
         if (ind1 == SQL_NULL_DATA || ind2 == SQL_NULL_DATA || ind3 == SQL_NULL_DATA) {
             continue;
         }
-
         Course c;
         c.id = cid;
         c.name = cname;
@@ -589,10 +590,8 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
         c.prereq_ids.clear();
         out.push_back(c);
     }
-
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-
-    // Ensure prereq table exists, then load prereq relations.
+    // 确保 course_prereq 表存在
     SQLHSTMT ensure_stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &ensure_stmt))) {
         err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
@@ -614,24 +613,21 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
         return false;
     }
     SQLFreeHandle(SQL_HANDLE_STMT, ensure_stmt);
-
     if (out.empty()) {
         return true;
     }
-
     SQLHSTMT pre_stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &pre_stmt))) {
         err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
         return false;
     }
-
     const char* pre_sql = "SELECT course_id, prereq_id FROM course_prereq ORDER BY course_id, prereq_id";
     if (!SQL_SUCCEEDED(SQLExecDirectA(pre_stmt, (SQLCHAR*)pre_sql, SQL_NTS))) {
         err = "list course_prereq failed: " + getOdbcError(SQL_HANDLE_STMT, pre_stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, pre_stmt);
         return false;
     }
-
+    // 遍历查询结果，将每一行数据转换为课程依赖关系并添加到out向量中
     while (true) {
         SQLRETURN ret = SQLFetch(pre_stmt);
         if (ret == SQL_NO_DATA) {
@@ -642,7 +638,6 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
             SQLFreeHandle(SQL_HANDLE_STMT, pre_stmt);
             return false;
         }
-
         char cid[64] = {0};
         char pid[64] = {0};
         SQLLEN ind1 = 0, ind2 = 0;
@@ -655,7 +650,6 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
         if (ind1 == SQL_NULL_DATA || ind2 == SQL_NULL_DATA) {
             continue;
         }
-
         std::string c_id = cid;
         std::string p_id = pid;
         for (auto& c : out) {
@@ -665,7 +659,6 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
             }
         }
     }
-
     SQLFreeHandle(SQL_HANDLE_STMT, pre_stmt);
     return true;
 }
@@ -673,7 +666,6 @@ bool OdbcDb::listCoursesFromDb(std::vector<Course>& out, std::string& err) {
 bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& stats, std::string& err) {
     stats.inserted = 0;
     stats.updated_or_unchanged = 0;
-
     if (dbc_ == SQL_NULL_HDBC) {
         err = "Not connected.";
         return false;
@@ -681,7 +673,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
     if (rows.empty()) {
         return true;
     }
-
     std::unordered_set<std::string> existing_course_ids;
     {
         SQLHSTMT scan_stmt = SQL_NULL_HSTMT;
@@ -689,14 +680,12 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
             err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
             return false;
         }
-
         const char* scan_sql = "SELECT course_id FROM course";
         if (!SQL_SUCCEEDED(SQLExecDirectA(scan_stmt, (SQLCHAR*)scan_sql, SQL_NTS))) {
             err = "scan existing courses failed: " + getOdbcError(SQL_HANDLE_STMT, scan_stmt);
             SQLFreeHandle(SQL_HANDLE_STMT, scan_stmt);
             return false;
         }
-
         while (true) {
             SQLRETURN ret = SQLFetch(scan_stmt);
             if (ret == SQL_NO_DATA) {
@@ -707,7 +696,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
                 SQLFreeHandle(SQL_HANDLE_STMT, scan_stmt);
                 return false;
             }
-
             char cid_buf[64] = {0};
             SQLLEN cid_ind = 0;
             if (!SQL_SUCCEEDED(SQLGetData(scan_stmt, 1, SQL_C_CHAR, cid_buf, sizeof(cid_buf), &cid_ind))) {
@@ -719,10 +707,8 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
                 existing_course_ids.insert(cid_buf);
             }
         }
-
         SQLFreeHandle(SQL_HANDLE_STMT, scan_stmt);
     }
-
     bool autocommit_off = false;
     auto rollbackAndRestore = [&]() {
         if (autocommit_off) {
@@ -748,41 +734,35 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         autocommit_off = false;
         return true;
     };
-
     if (!SQL_SUCCEEDED(SQLSetConnectAttr(dbc_, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_OFF, 0))) {
         err = "disable autocommit failed: " + getOdbcError(SQL_HANDLE_DBC, dbc_);
         return false;
     }
     autocommit_off = true;
-
     SQLHSTMT stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &stmt))) {
         err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
         rollbackAndRestore();
         return false;
     }
-
     const char* sql =
         "INSERT INTO course(course_id, course_name, credit) "
         "VALUES(?, ?, ?) "
         "ON DUPLICATE KEY UPDATE "
         "course_name = VALUES(course_name), "
         "credit = VALUES(credit)";
-
     if (!SQL_SUCCEEDED(SQLPrepareA(stmt, (SQLCHAR*)sql, SQL_NTS))) {
         err = "SQLPrepare failed: " + getOdbcError(SQL_HANDLE_STMT, stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         rollbackAndRestore();
         return false;
     }
-
     char cid[64] = {0};
     char cname[128] = {0};
     SQLINTEGER credit = 0;
     SQLLEN cid_ind = SQL_NTS;
     SQLLEN cname_ind = SQL_NTS;
     SQLLEN credit_ind = 0;
-
     if (!SQL_SUCCEEDED(SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
                                         sizeof(cid) - 1, 0, cid, sizeof(cid), &cid_ind)) ||
         !SQL_SUCCEEDED(SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
@@ -794,7 +774,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         rollbackAndRestore();
         return false;
     }
-
     for (const auto& c : rows) {
         if (c.id.empty() || c.name.empty() || c.credit <= 0) {
             err = "Invalid course row for upsert.";
@@ -802,13 +781,11 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
             rollbackAndRestore();
             return false;
         }
-
         std::memset(cid, 0, sizeof(cid));
         std::memset(cname, 0, sizeof(cname));
         std::strncpy(cid, c.id.c_str(), sizeof(cid) - 1);
         std::strncpy(cname, c.name.c_str(), sizeof(cname) - 1);
         credit = c.credit;
-
         SQLRETURN ret = SQLExecute(stmt);
         if (!SQL_SUCCEEDED(ret)) {
             err = "upsertCourses SQLExecute failed at course_id=" + c.id + ": " +
@@ -817,7 +794,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
             rollbackAndRestore();
             return false;
         }
-
         if (existing_course_ids.count(c.id) == 0) {
             stats.inserted++;
             existing_course_ids.insert(c.id);
@@ -826,9 +802,7 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         }
         SQLCloseCursor(stmt);
     }
-
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-
     // Ensure prereq table exists.
     SQLHSTMT ensure_stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &ensure_stmt))) {
@@ -853,7 +827,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         return false;
     }
     SQLFreeHandle(SQL_HANDLE_STMT, ensure_stmt);
-
     // Replace prereq mappings for each course in cache.
     SQLHSTMT del_stmt = SQL_NULL_HSTMT;
     SQLHSTMT ins_stmt = SQL_NULL_HSTMT;
@@ -865,10 +838,9 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         rollbackAndRestore();
         return false;
     }
-
+    // 先删除所有依赖关系，再插入新的依赖关系
     const char* del_sql = "DELETE FROM course_prereq WHERE course_id = ?";
     const char* ins_sql = "INSERT INTO course_prereq(course_id, prereq_id) VALUES(?, ?)";
-
     if (!SQL_SUCCEEDED(SQLPrepareA(del_stmt, (SQLCHAR*)del_sql, SQL_NTS))) {
         err = "prepare prereq delete SQL failed: " + getOdbcError(SQL_HANDLE_STMT, del_stmt);
         SQLFreeHandle(SQL_HANDLE_STMT, del_stmt);
@@ -883,7 +855,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         rollbackAndRestore();
         return false;
     }
-
     char del_cid[64] = {0};
     SQLLEN del_cid_ind = SQL_NTS;
     if (!SQL_SUCCEEDED(SQLBindParameter(del_stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
@@ -894,7 +865,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         rollbackAndRestore();
         return false;
     }
-
     char ins_cid[64] = {0};
     char ins_pid[64] = {0};
     SQLLEN ins_cid_ind = SQL_NTS;
@@ -909,7 +879,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
         rollbackAndRestore();
         return false;
     }
-
     for (const auto& c : rows) {
         std::memset(del_cid, 0, sizeof(del_cid));
         std::strncpy(del_cid, c.id.c_str(), sizeof(del_cid) - 1);
@@ -921,7 +890,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
             return false;
         }
         SQLCloseCursor(del_stmt);
-
         std::unordered_set<std::string> seen;
         for (const auto& pre : c.prereq_ids) {
             if (pre.empty() || !seen.insert(pre).second) {
@@ -942,7 +910,6 @@ bool OdbcDb::upsertCourses(const std::vector<Course>& rows, CourseSyncStats& sta
             SQLCloseCursor(ins_stmt);
         }
     }
-
     SQLFreeHandle(SQL_HANDLE_STMT, del_stmt);
     SQLFreeHandle(SQL_HANDLE_STMT, ins_stmt);
     return commitAndRestore();
@@ -1225,13 +1192,11 @@ bool OdbcDb::insertStudentPlanRowsDedup(const std::string& student_id,
     if (rows.empty()) {
         return true;
     }
-
     SQLHSTMT stmt = SQL_NULL_HSTMT;
     if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc_, &stmt))) {
         err = "SQLAllocHandle(SQL_HANDLE_STMT) failed.";
         return false;
     }
-
     const char* sql =
         "INSERT INTO student_course(student_id, course_id, semester, status) "
         "SELECT ?, ?, ?, ? "

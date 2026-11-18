@@ -31,6 +31,8 @@ StudentPage::StudentPage(AppSession* session, QWidget* parent)
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     // 设置选择模式：只能单选
     table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setSortingEnabled(true);
+    table_->horizontalHeader()->setSortIndicatorShown(true);
     // 创建“刷新”和“关闭”按钮
     auto* btnAdd = new QPushButton("新增", this);
     auto* btnEdit = new QPushButton("修改", this);
@@ -66,11 +68,14 @@ StudentPage::StudentPage(AppSession* session, QWidget* parent)
 }
 // reloadStudents 槽函数：从数据库重新加载学生数据并更新表格
 void StudentPage::reloadStudents(){
-    // 清空表格所有行
+    UiMessages::BusyGuard busy(this, "正在读取学生列表...");
+    const bool sorting = table_->isSortingEnabled();
+    table_->setSortingEnabled(false);
     table_->setRowCount(0);
     // 检查会话是否有效以及数据库是否已连接
     if(!session_ || !session_->connected){
         statusLabel_->setText("数据库未连接");
+        table_->setSortingEnabled(sorting);
         return;
     }
     
@@ -78,7 +83,8 @@ void StudentPage::reloadStudents(){
     std::string err;
     // 调用会话的 listStudents 方法获取学生列表，失败时 err 包含错误信息
     if(!session_->db.listStudents(students, err)){
-        statusLabel_->setText(QString("读取失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取学生列表", QString::fromStdString(err)));
+        table_->setSortingEnabled(sorting);
         return;
     }
     // 设置表格行数为获取到的学生数量
@@ -95,6 +101,7 @@ void StudentPage::reloadStudents(){
     }
     // 更新状态标签，显示记录总数
     statusLabel_->setText(QString("共 %1 条记录").arg(students.size()));
+    table_->setSortingEnabled(sorting);
 }
 
 // onAddStudent 槽函数：响应添加按钮点击，打开新增学生对话框
@@ -109,9 +116,14 @@ void StudentPage::onAddStudent(){
         return;
     }
 
+    if(!UiMessages::confirmUpload(this, "学生", 1)){
+        statusLabel_->setText("已取消新增学生");
+        return;
+    }
+
     std::string err;
     if(!session_->db.addStudent(dlg.student(),err)){
-        statusLabel_->setText(QString("添加失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("新增学生", QString::fromStdString(err)));
         return;
     }
 
@@ -142,7 +154,7 @@ void StudentPage::onEditStudent(){
     bool found = false;
     std::string err;
     if(!session_->db.getStudentById(sid, s, found, err)){
-        statusLabel_->setText(QString("读取学生失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取学生信息", QString::fromStdString(err)));
         return;
     }
     if(!found){
@@ -157,8 +169,13 @@ void StudentPage::onEditStudent(){
         return;
     }
 
+    if(!UiMessages::confirmUpload(this, "学生", 1)){
+        statusLabel_->setText("已取消修改学生");
+        return;
+    }
+
     if(!session_->db.updateStudent(dlg.student(), err)){
-        statusLabel_->setText(QString("修改失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("修改学生", QString::fromStdString(err)));
         return;
     }
 
@@ -197,7 +214,7 @@ void StudentPage::onDeleteStudent(){
     
     std::string err;
     if(!session_->db.deleteStudent(sid.toStdString(), err)){
-        statusLabel_->setText(QString("删除失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("删除学生", QString::fromStdString(err)));
         return;
     }
 
@@ -228,7 +245,7 @@ void StudentPage::onViewCourses(){
     bool found = false;
     std::string err;
     if(!session_->db.getStudentById(sid, s, found, err)){
-        statusLabel_->setText(QString("读取学生失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取学生信息", QString::fromStdString(err)));
         return;
     }
     if(!found){

@@ -32,6 +32,8 @@ CoursePage::CoursePage(AppSession* session, QWidget* parent)
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::SingleSelection);
     table_->setWordWrap(false);
+    table_->setSortingEnabled(true);
+    table_->horizontalHeader()->setSortIndicatorShown(true);
 
     auto* btnLoadTxt = new QPushButton("从文本文件载入到缓存", this);
     auto* btnLoadDb = new QPushButton("从数据库载入到缓存", this);
@@ -133,7 +135,7 @@ void CoursePage::loadFromTxtToCache(){
     std::vector<Course> courses;
     std::string err;
     if(!importCoursesFromTxt(path.toStdString(), courses, err)){
-        statusLabel_->setText(QString("导入 TXT 文件失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("导入 TXT 文件", QString::fromStdString(err)));
         return;
     }
 
@@ -144,10 +146,13 @@ void CoursePage::loadFromTxtToCache(){
 }
 
 void CoursePage::reloadFromCache(){
+    const bool sorting = table_->isSortingEnabled();
+    table_->setSortingEnabled(false);
     table_->setRowCount(0);
 
     if(!session_){
         statusLabel_->setText("会话无效");
+        table_->setSortingEnabled(sorting);
         return;
     }
 
@@ -171,6 +176,7 @@ void CoursePage::reloadFromCache(){
     }
 
     statusLabel_->setText(QString("缓存中共 %1 门课程").arg(courses.size()));
+    table_->setSortingEnabled(sorting);
 }
 
 void CoursePage::loadFromDbToCache() {
@@ -187,10 +193,11 @@ void CoursePage::loadFromDbToCache() {
         return;
     }
 
+    UiMessages::BusyGuard busy(this, "正在读取数据库课程...");
     std::vector<Course> courses;
     std::string err;
     if (!session_->db.listCoursesFromDb(courses, err)) {
-        statusLabel_->setText(QString("读取数据库课程失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取数据库课程", QString::fromStdString(err)));
         return;
     }
 
@@ -297,10 +304,13 @@ void CoursePage::onDeleteCourseFromDb() {
     const auto& c = session_->courseCache[row];
     CourseDeleteCheck check;
     std::string err;
-    if (!session_->db.getCourseDeleteCheck(c.id, check, err)) {
-        statusLabel_->setText(QString("读取课程引用失败：%1").arg(QString::fromStdString(err)));
-        QMessageBox::critical(this, "读取失败", QString::fromStdString(err));
-        return;
+    {
+        UiMessages::BusyGuard busy(this, "正在检查课程引用...");
+        if (!session_->db.getCourseDeleteCheck(c.id, check, err)) {
+            statusLabel_->setText(UiMessages::formatError("读取课程引用", QString::fromStdString(err)));
+            UiMessages::error(this, "读取失败", UiMessages::formatError("读取课程引用", QString::fromStdString(err)));
+            return;
+        }
     }
 
     if (check.student_course_refs > 0) {
@@ -337,8 +347,8 @@ void CoursePage::onDeleteCourseFromDb() {
     remove_prereq_refs = (check.prereq_required_refs > 0);
 
     if (!session_->db.deleteCourseFromDb(c.id, remove_prereq_refs, nullptr, err)) {
-        statusLabel_->setText(QString("数据库删除失败：%1").arg(QString::fromStdString(err)));
-        UiMessages::error(this, "删除失败", QString::fromStdString(err));
+        statusLabel_->setText(UiMessages::formatError("数据库删除课程", QString::fromStdString(err)));
+        UiMessages::error(this, "删除失败", UiMessages::formatError("数据库删除课程", QString::fromStdString(err)));
         return;
     }
 
@@ -377,10 +387,13 @@ void CoursePage::onSyncToDb() {
 
     CourseSyncStats stats;
     std::string err;
-    if (!session_->db.upsertCourses(session_->courseCache, stats, err)) {
-        statusLabel_->setText(QString("同步失败：%1").arg(QString::fromStdString(err)));
-        UiMessages::error(this, "同步失败", QString::fromStdString(err));
-        return;
+    {
+        UiMessages::BusyGuard busy(this, "正在同步课程到数据库...");
+        if (!session_->db.upsertCourses(session_->courseCache, stats, err)) {
+            statusLabel_->setText(UiMessages::formatError("同步课程到数据库", QString::fromStdString(err)));
+            UiMessages::error(this, "同步失败", UiMessages::formatError("同步课程到数据库", QString::fromStdString(err)));
+            return;
+        }
     }
 
     statusLabel_->setText(

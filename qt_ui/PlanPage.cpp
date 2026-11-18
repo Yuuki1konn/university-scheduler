@@ -145,6 +145,8 @@ PlanPage::PlanPage(AppSession* session, QWidget* parent)
     historyTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     historyTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     historyTable_->setSelectionMode(QAbstractItemView::SingleSelection);
+    historyTable_->setSortingEnabled(true);
+    historyTable_->horizontalHeader()->setSortIndicatorShown(true);
 
     planSummaryLabel_ = new QLabel(this);
     planSummaryLabel_->setWordWrap(true);
@@ -161,6 +163,8 @@ PlanPage::PlanPage(AppSession* session, QWidget* parent)
     planTable_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     planTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     planTable_->setSelectionMode(QAbstractItemView::SingleSelection);
+    planTable_->setSortingEnabled(true);
+    planTable_->horizontalHeader()->setSortIndicatorShown(true);
 
     statusLabel_ = new QLabel(this);
     statusLabel_->setWordWrap(true);
@@ -276,24 +280,30 @@ void PlanPage::reloadSummary() {
 
 void PlanPage::reloadStudents() {
     studentCombo_->clear();
+    const bool historySort = historyTable_->isSortingEnabled();
+    historyTable_->setSortingEnabled(false);
     historyTable_->setRowCount(0);
 
     if (!session_) {
         studentInfoLabel_->setText("会话无效");
         statusLabel_->setText("会话无效");
+        historyTable_->setSortingEnabled(historySort);
         return;
     }
     if (!session_->connected) {
         studentInfoLabel_->setText("数据库未连接");
         statusLabel_->setText("数据库未连接");
+        historyTable_->setSortingEnabled(historySort);
         return;
     }
 
+    UiMessages::BusyGuard busy(this, "正在读取学生列表...");
     std::vector<StudentInfo> students;
     std::string err;
     if (!session_->db.listStudents(students, err)) {
         studentInfoLabel_->setText("学生列表读取失败");
-        statusLabel_->setText(QString("读取学生失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取学生列表", QString::fromStdString(err)));
+        historyTable_->setSortingEnabled(historySort);
         return;
     }
 
@@ -314,11 +324,13 @@ void PlanPage::reloadStudents() {
     if (students.empty()) {
         studentInfoLabel_->setText("当前数据库中没有学生记录");
         statusLabel_->setText("学生列表为空");
+        historyTable_->setSortingEnabled(historySort);
         return;
     }
 
     studentCombo_->setCurrentIndex(targetIndex == 0 ? 1 : targetIndex);
     statusLabel_->setText(QString("已加载 %1 名学生").arg(students.size()));
+    historyTable_->setSortingEnabled(historySort);
 }
 
 void PlanPage::onStudentChanged(int index) {
@@ -341,7 +353,7 @@ void PlanPage::onStudentChanged(int index) {
     if (!session_->db.getStudentById(sid, student, found, err)) {
         studentInfoLabel_->setText("读取学生失败");
         historyTable_->setRowCount(0);
-        statusLabel_->setText(QString("读取学生失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取学生信息", QString::fromStdString(err)));
         return;
     }
     if (!found) {
@@ -363,16 +375,21 @@ void PlanPage::onStudentChanged(int index) {
 }
 
 void PlanPage::loadStudentHistory(const std::string& student_id) {
+    UiMessages::BusyGuard busy(this, "正在读取学生课程记录...");
+    const bool historySort = historyTable_->isSortingEnabled();
+    historyTable_->setSortingEnabled(false);
     historyTable_->setRowCount(0);
 
     if (!session_ || student_id.empty()) {
+        historyTable_->setSortingEnabled(historySort);
         return;
     }
 
     std::vector<LearnedCourse> history;
     std::string err;
     if (!session_->db.listStudentCourses(student_id, history, err)) {
-        statusLabel_->setText(QString("读取历史课程失败：%1").arg(QString::fromStdString(err)));
+        statusLabel_->setText(UiMessages::formatError("读取历史课程", QString::fromStdString(err)));
+        historyTable_->setSortingEnabled(historySort);
         return;
     }
 
@@ -387,6 +404,7 @@ void PlanPage::loadStudentHistory(const std::string& student_id) {
     }
 
     statusLabel_->setText(QString("已载入该学生 %1 条课程记录").arg(history.size()));
+    historyTable_->setSortingEnabled(historySort);
 }
 
 void PlanPage::onSaveConfig() {
@@ -435,10 +453,13 @@ void PlanPage::onGeneratePlan() {
 
         std::vector<LearnedCourse> history;
         std::string err;
-        if (!session_->db.listStudentCourses(session_->selectedStudentId, history, err)) {
-            statusLabel_->setText(QString("读取学生历史失败：%1").arg(QString::fromStdString(err)));
-            UiMessages::error(this, "读取失败", QString::fromStdString(err));
-            return;
+        {
+            UiMessages::BusyGuard busy(this, "正在读取学生已修课程...");
+            if (!session_->db.listStudentCourses(session_->selectedStudentId, history, err)) {
+                statusLabel_->setText(UiMessages::formatError("读取学生历史", QString::fromStdString(err)));
+                UiMessages::error(this, "读取失败", UiMessages::formatError("读取学生历史", QString::fromStdString(err)));
+                return;
+            }
         }
 
         std::unordered_set<std::string> completedIds;
@@ -461,10 +482,13 @@ void PlanPage::onGeneratePlan() {
     }
 
     std::string err;
-    if (!generateSemesterPlan(schedulingCourses, session_->planConfig, session_->generatedPlan, err)) {
-        statusLabel_->setText(QString("生成课表失败：%1").arg(QString::fromStdString(err)));
-        UiMessages::error(this, "生成失败", QString::fromStdString(err));
-        return;
+    {
+        UiMessages::BusyGuard busy(this, "正在生成课表...");
+        if (!generateSemesterPlan(schedulingCourses, session_->planConfig, session_->generatedPlan, err)) {
+            statusLabel_->setText(UiMessages::formatError("生成课表", QString::fromStdString(err)));
+            UiMessages::error(this, "生成失败", UiMessages::formatError("生成课表", QString::fromStdString(err)));
+            return;
+        }
     }
 
     int plannedCourseCount = 0;
@@ -487,15 +511,19 @@ void PlanPage::onGeneratePlan() {
 }
 
 void PlanPage::reloadGeneratedPlanView() {
+    const bool planSort = planTable_->isSortingEnabled();
+    planTable_->setSortingEnabled(false);
     planTable_->setRowCount(0);
 
     if (!session_) {
         planSummaryLabel_->setText("会话无效");
+        planTable_->setSortingEnabled(planSort);
         return;
     }
 
     if (session_->generatedPlan.empty()) {
         planSummaryLabel_->setText("当前还没有生成课表。");
+        planTable_->setSortingEnabled(planSort);
         return;
     }
 
@@ -541,6 +569,7 @@ void PlanPage::reloadGeneratedPlanView() {
             .arg(session_->generatedPlan.size())
             .arg(totalCredits)
     );
+    planTable_->setSortingEnabled(planSort);
 }
 
 void PlanPage::onExportPlan() {
@@ -567,10 +596,13 @@ void PlanPage::onExportPlan() {
     }
 
     std::string err;
-    if (!exportPlanToTxt(path.toStdString(), session_->generatedPlan, buildCourseMap(session_->courseCache), err)) {
-        statusLabel_->setText(QString("导出失败：%1").arg(QString::fromStdString(err)));
-        UiMessages::error(this, "导出失败", QString::fromStdString(err));
-        return;
+    {
+        UiMessages::BusyGuard busy(this, "正在导出课表...");
+        if (!exportPlanToTxt(path.toStdString(), session_->generatedPlan, buildCourseMap(session_->courseCache), err)) {
+            statusLabel_->setText(UiMessages::formatError("导出课表", QString::fromStdString(err)));
+            UiMessages::error(this, "导出失败", UiMessages::formatError("导出课表", QString::fromStdString(err)));
+            return;
+        }
     }
 
     statusLabel_->setText(QString("已导出课表到 %1").arg(path));
@@ -612,19 +644,25 @@ void PlanPage::onExportPlan() {
 
     int deleted = 0;
     if (selectedMode == "覆盖当前学生计划后写入") {
-        if (!session_->db.deleteStudentPlannedRows(session_->selectedStudentId, deleted, err)) {
-            statusLabel_->setText(QString("清理旧计划失败：%1").arg(QString::fromStdString(err)));
-            UiMessages::error(this, "写入失败", QString::fromStdString(err));
-            return;
+        {
+            UiMessages::BusyGuard busy(this, "正在清理旧计划...");
+            if (!session_->db.deleteStudentPlannedRows(session_->selectedStudentId, deleted, err)) {
+                statusLabel_->setText(UiMessages::formatError("清理旧计划", QString::fromStdString(err)));
+                UiMessages::error(this, "写入失败", UiMessages::formatError("清理旧计划", QString::fromStdString(err)));
+                return;
+            }
         }
     }
 
     PlanWriteStats stats;
     const auto rows = buildPlanRowsFromPlan(session_->generatedPlan);
-    if (!session_->db.insertStudentPlanRowsDedup(session_->selectedStudentId, rows, stats, err)) {
-        statusLabel_->setText(QString("写入 student_course 失败：%1").arg(QString::fromStdString(err)));
-        UiMessages::error(this, "写入失败", QString::fromStdString(err));
-        return;
+    {
+        UiMessages::BusyGuard busyWrite(this, "正在写入 student_course...");
+        if (!session_->db.insertStudentPlanRowsDedup(session_->selectedStudentId, rows, stats, err)) {
+            statusLabel_->setText(UiMessages::formatError("写入 student_course", QString::fromStdString(err)));
+            UiMessages::error(this, "写入失败", UiMessages::formatError("写入 student_course", QString::fromStdString(err)));
+            return;
+        }
     }
 
     const QString msg = QString("写入完成。\n新增: %1\n重复跳过: %2\n删除旧计划: %3")

@@ -61,7 +61,7 @@ int findIndexById(const std::vector<Course>& courses,const std::string& id){
     return -1;
 }
 } // namespace
-
+// 课程标准化函数
 Course normalizeCourse(const Course& in){
     Course out = in;// 1. 拷贝原始课程，作为基础
     out.id = trim(out.id);// 2. 去除课程 ID 首尾空白

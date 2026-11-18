@@ -19,7 +19,6 @@ std::vector<Course> courses; // 全局变量，存储导入的课程目录
 std::unordered_map<std::string, Course> course_map; // 全局变量，存储课程 ID 到课程对象的映射
 std::vector<SemesterPlan> plan; // 全局变量，存储生成的排课计划
 
-
 /**
  * 打印主菜单包装
  */
@@ -34,7 +33,8 @@ void printMenu(){
     std::cout << "输入序号: ";
 }
 
-void rebuildCourseMap(const std::vector<Course>&courses, std::unordered_map<std::string, Course>& course_map){
+void rebuildCourseMap(const std::vector<Course>&courses,
+     std::unordered_map<std::string, Course>& course_map){
     course_map.clear(); // 清空旧映射
     for (const auto& c : courses) {
         course_map[c.id] = c; // 用课程 ID 作为键，课程对象作为值
@@ -48,7 +48,6 @@ std::string trim(const std::string& input) {
     while (start < input.size() && std::isspace(static_cast<unsigned char>(input[start]))) {
         ++start;
     }
-
     size_t end = input.size();
     // 从尾扫描空白字符
     while (end > start && std::isspace(static_cast<unsigned char>(input[end - 1]))) {
@@ -99,10 +98,8 @@ void clearScreen() {
 #endif
 }
  /** 列出 data 目录下所有扩展名为 .txt 或 .TXT 的文件的完整路径。
- * 
  * 该函数使用 C++17 的 std::filesystem 库遍历 "./data" 目录。
  * 如果 data 目录不存在或不是一个目录，则返回空列表。
- * 
  * @return 包含所有匹配文件完整路径的字符串向量。
  */
 std::vector<std::string> listTxtFilesInDataDir() {
@@ -125,7 +122,6 @@ std::vector<std::string> listTxtFilesInDataDir() {
 }
 /**
  * 检查字符串是否表示一个正整数（即只包含数字字符，且非空）。
- * 
  * 该函数遍历字符串的每个字符，确保它们都是数字（0-9）。
  * 注意：它不处理前导零或负号，空字符串返回 false。
  */
@@ -143,26 +139,8 @@ bool isPositiveInteger(const std::string& s) {
 
 /**
  * 解析一行以逗号分隔的先修课程 ID 字符串，返回 ID 列表。
- * 
- * 该函数用于处理从文件或用户输入中读取的、以逗号分隔的课程 ID 字符串，
- * 例如 "C01,C02,C03" 或 "C01, C02, C03"（注意：当前实现不会去除空格，
- * 所以如果输入包含空格，ID 中会包含空格，这可能不是期望的行为。
- * 通常应结合 trim 函数去除每个 token 的首尾空白，但此函数简化了处理，
- * 仅去除了空 token（即连续逗号产生的空串）。
- * 
  * @param line 原始字符串，例如 "C01,C02,C03"。
  * @return     包含解析出的课程 ID 的 vector。如果 line 为空，返回空 vector。
- * 
- * 算法逻辑：
- *   1. 创建一个 std::stringstream 对象 ss，用输入字符串 line 初始化。
- *   2. 使用 std::getline(ss, token, ',') 循环读取由逗号分隔的每个片段。
- *   3. 对每个读取到的 token，检查是否为空串（例如两个逗号相邻的情况）。
- *   4. 如果 token 非空，将其添加到 result 向量中。
- *   5. 循环结束后返回 result。
- * 
- * 注意：该函数对 token 进行 trim（去除首尾空白），如果原始字符串
- *      中包含空格（如 "C01, C02"），则 token 可能为 " C02"（含前导空格），
- *      可能导致后续的课程 ID 校验失败。则实际使用前对每个 token 进行 trim。
  */
 std::vector<std::string> parsePrereqLine(const std::string& line){
     std::vector<std::string> result;
@@ -179,18 +157,10 @@ std::vector<std::string> parsePrereqLine(const std::string& line){
 
 /**
  * 从标准输入（键盘）读取课程信息，并填充到指定的 Course 对象中。
- * 
- * 该函数用于交互式输入，依次提示用户输入：
- *   - 课程号（可选，由 id_readonly 参数控制）
- *   - 课程名称
- *   - 课程学分
- *   - 先修课程 ID 列表（逗号分隔）
- * 
  * 输入处理：
  *   - 所有输入均使用 std::getline 读取整行，允许包含空格。
  *   - 学分输入后使用 std::stoi 转换为整数，若转换失败会抛出异常（本函数未捕获，需调用者处理）。
  *   - 先修课程行使用 parsePrereqLine 函数解析为字符串向量。
- * 
  * @param c            要填充的 Course 对象（引用，会被修改）
  * @param id_readonly  是否只读课程号。若为 true，则跳过课程号输入，保留 c.id 原值；
  *                     若为 false，则提示用户输入新课程号。默认值为 false。
@@ -375,7 +345,6 @@ std::string buildOdbcConnStr(const std::string& uid, const std::string& pwd){
            "PWD=" + pwd + ";"
            "OPTION=3;";
 }
-
 // 根据学生已完成的课程集合，从所有课程中筛选出尚未完成的课程（待修课程），
 // 并移除这些待修课程中已经完成的先修课程依赖。
 std::vector<Course> buildPendingCoursesByCompleted(
@@ -569,7 +538,6 @@ bool writePlanToDbInteractive(const std::vector<SemesterPlan>& current_plan) {
               << "，重复跳过 " << stats.duplicated << "\n";
     return true;
 }
-
 /**
  * 程序入口
  */
@@ -596,12 +564,10 @@ int main(){
             {
                 std::string err;
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
                 std::string source;
                 std::cout << "导入来源: 1=TXT文件 2=数据库course表 (默认1): ";
                 std::getline(std::cin, source);
                 source = trim(source);
-
                 if (source == "2") {
                     OdbcDb db;
                     if (!connectDbByPrompt(db, err)) {
@@ -609,13 +575,11 @@ int main(){
                         waitForEnter();
                         break;
                     }
-
                     if (!db.listCoursesFromDb(courses, err)) {
                         std::cout << "从数据库导入课程失败: " << err << "\n";
                         waitForEnter();
                         break;
                     }
-
                     rebuildCourseMap(courses, course_map);
                     plan.clear();
                     std::cout << "从数据库导入成功，共 " << courses.size() << " 门课程。\n";
@@ -623,7 +587,6 @@ int main(){
                     waitForEnter();
                     break;
                 }
-
                 std::string path;
                 const auto txt_files = listTxtFilesInDataDir();
                 if (!txt_files.empty()) {
@@ -634,11 +597,9 @@ int main(){
                 } else {
                     std::cout << "未在 data 目录检测到 .txt 文件。\n";
                 }
-
                 std::cout << "请输入文件编号或完整路径(回车默认 data/courses.txt): ";
                 std::getline(std::cin, path);
                 path = trim(path);
-
                 if (path.empty()) {
                     path = "data/courses.txt";
                 } else if (isPositiveInteger(path) && !txt_files.empty()) {
@@ -650,7 +611,6 @@ int main(){
                     }
                 }
                 std::cout << "本次导入文件: " << path << "\n";
-
                 if (importCoursesFromTxt(path, courses, err)) {
                     rebuildCourseMap(courses, course_map);
                     plan.clear();
@@ -813,23 +773,19 @@ int main(){
             {
                 std::string path;
                 std::string err;
-
                 std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                 if (courses.empty()) {
                     std::cout << "请先导入课程目录\n";
                     waitForEnter();
                     break;
                 }
-
                 if (!syncCacheCoursesToDbInteractive(courses)) {
                     waitForEnter();
                     break;
                 }
-
                 std::cout << "当前课程目录如下（导出前参考）：\n";
                 listCourses(courses);
                 std::cout << "\n";
-
                 auto regenerateForExport = [&]() -> bool {
                     std::vector<Course> scheduling_courses;
                     if (!buildSchedulingCoursesInteractive(courses, scheduling_courses)) {
@@ -840,7 +796,6 @@ int main(){
                         plan.clear();
                         return true;
                     }
-
                     PlanConfig config;
                     inputPlanConfig(config);
                     if (!generateSemesterPlan(scheduling_courses, config, plan, err)) {
@@ -850,7 +805,6 @@ int main(){
                     rebuildCourseMap(courses, course_map);
                     return true;
                 };
-
                 if (plan.empty()) {
                     std::cout << "当前还没有已生成课表，需要先生成。\n";
                     if (!regenerateForExport()) {
@@ -869,20 +823,17 @@ int main(){
                         }
                     }
                 }
-
                 if (plan.empty()) {
                     std::cout << "当前无可导出课表。\n";
                     waitForEnter();
                     break;
                 }
-
                 printPlanPreview(plan, course_map);
                 std::cout << "请输入导出文件路径(回车默认 output/plan.txt):";
                 std::getline(std::cin, path);
                 if (path.empty()) {
                     path = "output/plan.txt";
                 }
-
                 if (exportPlanToTxt(path, plan, course_map, err)) {
                     std::cout << "导出排课计划成功:" << path << "\n";
                     if (!writePlanToDbInteractive(plan)) {
@@ -892,7 +843,6 @@ int main(){
                 } else {
                     std::cout << "导出排课计划失败: " << err << "\n";
                 }
-
                 waitForEnter();
                 break;
             }
@@ -946,7 +896,6 @@ int main(){
                             std::cout << "当前学生列表（新增时可参考）：\n";
                             printStudentList(students);
                         }
-
                         StudentInfo s;
                         std::string line;
                         std::cout << "学号: ";
@@ -1090,7 +1039,6 @@ int main(){
                             waitForEnter();
                             continue;
                         }
-
                         std::cout << "学生信息: " << s.student_id << " | "
                                   << s.name << " | " << s.major << " | " << s.grade << "\n";
                         std::vector<LearnedCourse> history;
@@ -1108,7 +1056,6 @@ int main(){
                 break;
             }
             case 0: // 选项 0：退出程序
-            
                 std::cout << "退出程序\n";
                 return 0; // 正常退出程序
             default: // 其他无效选项
@@ -1116,7 +1063,5 @@ int main(){
                 break;
             }
         }
-    
-
     return 0;
 }

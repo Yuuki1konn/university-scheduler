@@ -19,7 +19,6 @@ void listCourses(const std::vector<Course>& courses);
  * @param c       要添加的课程对象（包含 ID、名称、学分、先修课程列表）。
  * @param err     输出参数，如果添加失败，此处会存储具体的错误描述。
  * @return        成功添加返回 true，失败返回 false。
- * 
  * 添加失败的可能原因：
  *   - 课程 ID 已存在（不允许重复 ID）
  *   - 先修课程列表中包含不存在的课程 ID
@@ -39,10 +38,6 @@ bool addCourse(std::vector<Course>& courses,const Course& c, std::string& err);
  *   - 要更新的课程 ID 不存在
  *   - 新的先修课程列表中出现不存在的课程 ID
  *   - 更新后学分 <= 0
- *   - 其他业务规则冲突
- * 
- * 注意：更新操作可能允许修改课程 ID？通常课程 ID 是唯一标识，不应允许修改。
- * 具体实现可能限制 ID 不可变，或采取先删除后添加的策略。
  */
 bool updateCourse(std::vector<Course>& courses,const Course& updated, std::string& err);
 
@@ -52,7 +47,6 @@ bool updateCourse(std::vector<Course>& courses,const Course& updated, std::strin
  * @param id      要删除的课程 ID。
  * @param err     输出参数，如果删除失败，此处会存储具体的错误描述。
  * @return        成功删除返回 true，失败返回 false。
- * 
  * 删除失败的可能原因：
  *   - 课程 ID 不存在
  *   - 存在其他课程将该课程作为先修课程（即 hasDependent 返回 true），
