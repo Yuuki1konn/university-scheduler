@@ -1,5 +1,0 @@
-E:/practice_work/build_qt/CMakeFiles/scheduler_qt.dir
-E:/practice_work/build_qt/CMakeFiles/edit_cache.dir
-E:/practice_work/build_qt/CMakeFiles/rebuild_cache.dir
-E:/practice_work/build_qt/CMakeFiles/scheduler_qt_autogen_timestamp_deps.dir
-E:/practice_work/build_qt/CMakeFiles/scheduler_qt_autogen.dir

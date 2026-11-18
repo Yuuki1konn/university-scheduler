@@ -1,61 +1,51 @@
 {
+    "version": "2.0.0",
     "tasks": [
         {
-            "type": "cppbuild",
-            "label": "C/C++: Build scheduler",
-            "command": "C:\\Mingw64\\mingw64\\bin\\g++.exe",
-            "args": [
-                "-fdiagnostics-color=always",
-                "-std=c++17",
-                "-Wall",
-                "-Wextra",
-                "-g",
-                "-I",
-                "${workspaceFolder}/include",
-                "src/main.cpp",
-                "src/course_io.cpp",
-                "src/course_edit.cpp",
-                "src/scheduler.cpp",
-                "src/db_odbc.cpp",
-                // "src/p2_3_odbc_test.cpp",
-                // "src/p2_5_insert_plan_test.cpp",
-                "-lodbc32",
-                "-o",
-                "output/scheduler.exe"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "detail": "调试器生成的任务。"
+            "label": "build: TUI",
+            "detail": "用 MinGW g++ 编译 TUI 版到 output/scheduler.exe",
+            "type": "shell",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/build.ps1", "-Target", "tui"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": ["$gcc"],
+            "group": { "kind": "build", "isDefault": true }
         },
         {
+            "label": "build: Qt",
+            "detail": "用 CMake + MinGW 编译 Qt 版到 build_qt/scheduler_qt.exe",
             "type": "shell",
-            "label": "C/C++: Run scheduler",
-            "command": ".\\output\\scheduler.exe",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": []
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/build.ps1", "-Target", "qt"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": ["$gcc"],
+            "group": "build"
         },
         {
+            "label": "build: all",
+            "detail": "TUI + Qt 一起编译",
             "type": "shell",
-            "label": "C/C++: Build and Run scheduler",
-            "dependsOn": [
-                "C/C++: Build scheduler"
-            ],
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/build.ps1", "-Target", "all"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": ["$gcc"],
+            "group": "build"
+        },
+        {
+            "label": "run: TUI",
+            "type": "shell",
             "command": ".\\output\\scheduler.exe",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": [],
+            "dependsOn": ["build: TUI"]
+        },
+        {
+            "label": "run: GUI",
+            "type": "shell",
+            "command": "pwsh",
+            "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/run_gui.ps1"],
+            "options": { "cwd": "${workspaceFolder}" },
             "problemMatcher": []
         }
-    ],
-    "version": "2.0.0"
+    ]
 }
